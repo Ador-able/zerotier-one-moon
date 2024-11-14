@@ -58,7 +58,7 @@ echo -e "稳定端点: ${stableEndpointsForSed}"
 if [ -d "/var/lib/zerotier-one/moons.d" ]; then
   echo "已检测到 ZeroTier 配置文件"
   stableEndpointsForSed_clean="$ipv4_address/$moon_port"
-  stableEndpointsForSed="$(echo "${stableEndpointsForSed_clean}" | tr -d '[:space:]')"
+  stableEndpointsForSed_clean="$(echo "${stableEndpointsForSed_clean}" | tr -d '[:space:]')"
   jq --arg endpoint "$stableEndpointsForSed_clean"  '.roots[].stableEndpoints = [$endpoint]' /var/lib/zerotier-one/moon.json > /var/lib/zerotier-one/temp.json && mv /var/lib/zerotier-one/temp.json /moon.json
 
   moon_id=$(cat /var/lib/zerotier-one/identity.public | cut -d ':' -f1)
