@@ -14,9 +14,6 @@ RUN apt-get update -qq && apt-get install curl jq gpg ca-certificates -y \
     && apt-get update -qq && apt-get install zerotier-one=${VERSION} iproute2 net-tools iputils-ping openssl procps -y \
     && rm -rf /var/lib/apt/lists/*
 
-# ZeroTier relies on UDP port 9993
-EXPOSE 9993/udp
-
 COPY start-moon.sh /start-moon.sh
 COPY check_ip_and_restart.sh /check_ip_and_restart.sh
 
