@@ -5,12 +5,14 @@
 
 export PATH=/bin:/usr/bin:/usr/local/bin:/sbin:/usr/sbin
 
-/check_ip_and_restart.sh > /dev/stdout 2>&1 &
+/check_ip_and_restart.sh  &
 
 moon_port=9993 # 默认的 ZeroTier moon 端口
 
 # 通过 API 请求获取当前的公网 IPv4 地址
 ipv4_address=$(curl -s https://api.ipify.org)
+
+sleep 5
 
 # 处理命令行参数
 while getopts "6:p:" arg
@@ -54,10 +56,21 @@ echo -e "稳定端点: ${stableEndpointsForSed}"
 
 # 检查 ZeroTier 配置文件是否已生成
 if [ -d "/var/lib/zerotier-one/moons.d" ]; then
+  echo "已检测到 ZeroTier 配置文件"
+  stableEndpointsForSed_clean="$ipv4_address/$moon_port"
+  stableEndpointsForSed="$(echo "${stableEndpointsForSed_clean}" | tr -d '[:space:]')"
+  jq --arg endpoint "$stableEndpointsForSed_clean"  '.roots[].stableEndpoints = [$endpoint]' /var/lib/zerotier-one/moon.json > /var/lib/zerotier-one/temp.json && mv /var/lib/zerotier-one/temp.json /moon.json
+
   moon_id=$(cat /var/lib/zerotier-one/identity.public | cut -d ':' -f1)
+  
+  echo "删除旧的moons.d"
+  rm -rf /var/lib/zerotier-one/moons.d
+
+  mv /moon.json /var/lib/zerotier-one/moon.json
+
   echo -e "你的 ZeroTier moon ID 是 \033[0;31m$moon_id\033[0m，可通过以下命令连接此 moon: \033[0;31m\"zerotier-cli orbit $moon_id $moon_id\"\033[0m"
-  /usr/sbin/zerotier-one
 else
+  echo "生成全新 ZeroTier 配置文件"
   nohup /usr/sbin/zerotier-one >/dev/null 2>&1 & # 后台启动 ZeroTier 服务以生成身份
   while [ ! -f /var/lib/zerotier-one/identity.secret ]; do # 等待身份文件生成
     sleep 1
@@ -65,11 +78,12 @@ else
   # 初始化 moon 配置文件
   /usr/sbin/zerotier-idtool initmoon /var/lib/zerotier-one/identity.public >>/var/lib/zerotier-one/moon.json
   sed -i 's/"stableEndpoints": \[\]/"stableEndpoints": ['$stableEndpointsForSed']/g' /var/lib/zerotier-one/moon.json
-  /usr/sbin/zerotier-idtool genmoon /var/lib/zerotier-one/moon.json >/dev/null # 生成最终配置文件
-  mkdir /var/lib/zerotier-one/moons.d
-  mv *.moon /var/lib/zerotier-one/moons.d/
-  pkill zerotier-one
-  moon_id=$(cat /var/lib/zerotier-one/moon.json | grep \"id\" | cut -d '"' -f4)
-  echo -e "你的 ZeroTier moon ID 是 \033[0;31m$moon_id\033[0m，可通过以下命令连接此 moon: \033[0;31m\"zerotier-cli orbit $moon_id $moon_id\"\033[0m"
-  exec /usr/sbin/zerotier-one
 fi
+
+/usr/sbin/zerotier-idtool genmoon /var/lib/zerotier-one/moon.json >/dev/null # 生成最终配置文件
+mkdir /var/lib/zerotier-one/moons.d
+mv *.moon /var/lib/zerotier-one/moons.d/
+pkill zerotier-one
+moon_id=$(cat /var/lib/zerotier-one/moon.json | grep \"id\" | cut -d '"' -f4)
+echo -e "你的 ZeroTier moon ID 是 \033[0;31m$moon_id\033[0m，可通过以下命令连接此 moon: \033[0;31m\"zerotier-cli orbit $moon_id $moon_id\"\033[0m"
+exec /usr/sbin/zerotier-one
