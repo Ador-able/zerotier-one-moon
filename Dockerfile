@@ -5,7 +5,7 @@ LABEL description="ZeroTier One moon as Docker Image"
 
 ARG VERSION=1.14.0
 
-RUN apt-get update -qq && apt-get install curl gpg ca-certificates -y \
+RUN apt-get update -qq && apt-get install curl jq gpg ca-certificates -y \
     &&  mkdir -p /usr/share/zerotier && \
     curl -o /usr/share/zerotier/tmp.asc "https://download.zerotier.com/contact%40zerotier.com.gpg" \
     && gpg --no-default-keyring --keyring /usr/share/zerotier/zerotier.gpg --import /usr/share/zerotier/tmp.asc && \
@@ -18,5 +18,6 @@ RUN apt-get update -qq && apt-get install curl gpg ca-certificates -y \
 EXPOSE 9993/udp
 
 COPY start-moon.sh /start-moon.sh
+COPY check_ip_and_restart.sh /check_ip_and_restart.sh
 
 ENTRYPOINT ["/start-moon.sh"]

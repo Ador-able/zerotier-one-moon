@@ -2,7 +2,7 @@ version: "3.5"
 
 services:
   zerotier-moon:
-    image: ghcr.io/gythialy/zerotier-one-moon:latest
+    image: zerotier-moon
     container_name: zerotier-moon
     cap_add:
       - NET_ADMIN
@@ -12,7 +12,7 @@ services:
     ports:
       - 9993:9993/udp
     command:
-      - -4 xxx.xxx.xxx.xxx
       - -p 9993
     volumes:
-      - ./zerotier-one:/var/lib/zerotier-one
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /mnt/data/Docker/ZerotierOne:/var/lib/zerotier-one

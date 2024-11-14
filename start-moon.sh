@@ -1,70 +1,75 @@
 #!/bin/sh
 
-# borrowed from https://github.com/rwv/docker-zerotier-moon
-# usage ./start-moon.sh -4 1.2.3.4 -6 2001:abcd:abcd::1 -p 9993
+# 引用自 https://github.com/rwv/docker-zerotier-moon
+# 使用示例：./start-moon.sh -4 1.2.3.4 -6 2001:abcd:abcd::1 -p 9993
 
 export PATH=/bin:/usr/bin:/usr/local/bin:/sbin:/usr/sbin
 
-moon_port=9993 # default ZeroTier moon port
+/check_ip_and_restart.sh > /dev/stdout 2>&1 &
 
-while getopts "4:6:p:" arg; do # handle args
-  case $arg in
-  4)
-    ipv4_address="$OPTARG"
-    echo "IPv4 address: $ipv4_address"
-    ;;
-  6)
-    ipv6_address="$OPTARG"
-    echo "IPv6 address: $ipv6_address"
-    ;;
-  p)
-    moon_port="$OPTARG"
-    echo "Moon port: $moon_port"
-    ;;
-  ?)
-    echo "unknown argument"
-    exit 1
-    ;;
-  esac
+moon_port=9993 # 默认的 ZeroTier moon 端口
+
+# 通过 API 请求获取当前的公网 IPv4 地址
+ipv4_address=$(curl -s https://api.ipify.org)
+
+# 处理命令行参数
+while getopts "6:p:" arg
+do
+        case $arg in
+             6)
+                ipv6_address="$OPTARG"
+                echo "IPv6 地址: $ipv6_address"
+                ;;
+             p)
+                moon_port="$OPTARG"
+                echo "Moon 端口: $moon_port"
+                ;;
+             ?)
+                echo "未知参数"
+                exit 1
+                ;;
+        esac
 done
 
+# 配置稳定的端点（stableEndpointsForSed）用于 ZeroTier
 stableEndpointsForSed=""
-if [ -z ${ipv4_address+x} ]; then   # ipv4 address is not set
-  if [ -z ${ipv6_address+x} ]; then # ipv6 address is not set
-    echo "Please set IPv4 address or IPv6 address."
+if [ -z ${ipv4_address+x} ]; then   # 如果未设置 IPv4 地址
+  if [ -z ${ipv6_address+x} ]; then # 并且未设置 IPv6 地址
+    echo "请设置 IPv4 或 IPv6 地址。"
     exit 0
-  else # ipv6 address is set
+  else # 仅设置了 IPv6 地址
     stableEndpointsForSed="\"$ipv6_address\/$moon_port\""
   fi
-else                                # ipv4 address is set
-  if [ -z ${ipv6_address+x} ]; then # ipv6 address is not set
+else                                # 设置了 IPv4 地址
+  if [ -z ${ipv6_address+x} ]; then # 且未设置 IPv6 地址
     stableEndpointsForSed="\"$ipv4_address\/$moon_port\""
-  else # ipv6 address is set
+  else # IPv4 和 IPv6 地址都已设置
     stableEndpointsForSed="\"$ipv4_address\/$moon_port\",\"$ipv6_address\/$moon_port\""
   fi
 fi
 
-# trim whitespace
+# 去除多余的空格
 stableEndpointsForSed="$(echo "${stableEndpointsForSed}" | tr -d '[:space:]')"
-echo -e "stableEndpoints: ${stableEndpointsForSed}"
+echo -e "稳定端点: ${stableEndpointsForSed}"
 
-if [ -d "/var/lib/zerotier-one/moons.d" ]; then # check if the moons conf has generated
+# 检查 ZeroTier 配置文件是否已生成
+if [ -d "/var/lib/zerotier-one/moons.d" ]; then
   moon_id=$(cat /var/lib/zerotier-one/identity.public | cut -d ':' -f1)
-  echo -e "Your ZeroTier moon id is \033[0;31m$moon_id\033[0m, you could orbit moon using \033[0;31m\"zerotier-cli orbit $moon_id $moon_id\"\033[0m"
+  echo -e "你的 ZeroTier moon ID 是 \033[0;31m$moon_id\033[0m，可通过以下命令连接此 moon: \033[0;31m\"zerotier-cli orbit $moon_id $moon_id\"\033[0m"
   /usr/sbin/zerotier-one
 else
-  nohup /usr/sbin/zerotier-one >/dev/null 2>&1 &
-  # Waiting for identity generation...'
-  while [ ! -f /var/lib/zerotier-one/identity.secret ]; do
+  nohup /usr/sbin/zerotier-one >/dev/null 2>&1 & # 后台启动 ZeroTier 服务以生成身份
+  while [ ! -f /var/lib/zerotier-one/identity.secret ]; do # 等待身份文件生成
     sleep 1
   done
+  # 初始化 moon 配置文件
   /usr/sbin/zerotier-idtool initmoon /var/lib/zerotier-one/identity.public >>/var/lib/zerotier-one/moon.json
   sed -i 's/"stableEndpoints": \[\]/"stableEndpoints": ['$stableEndpointsForSed']/g' /var/lib/zerotier-one/moon.json
-  /usr/sbin/zerotier-idtool genmoon /var/lib/zerotier-one/moon.json >/dev/null
+  /usr/sbin/zerotier-idtool genmoon /var/lib/zerotier-one/moon.json >/dev/null # 生成最终配置文件
   mkdir /var/lib/zerotier-one/moons.d
   mv *.moon /var/lib/zerotier-one/moons.d/
   pkill zerotier-one
   moon_id=$(cat /var/lib/zerotier-one/moon.json | grep \"id\" | cut -d '"' -f4)
-  echo -e "Your ZeroTier moon id is \033[0;31m$moon_id\033[0m, you could orbit moon using \033[0;31m\"zerotier-cli orbit $moon_id $moon_id\"\033[0m"
+  echo -e "你的 ZeroTier moon ID 是 \033[0;31m$moon_id\033[0m，可通过以下命令连接此 moon: \033[0;31m\"zerotier-cli orbit $moon_id $moon_id\"\033[0m"
   exec /usr/sbin/zerotier-one
 fi
