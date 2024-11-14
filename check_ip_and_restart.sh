@@ -9,7 +9,7 @@ ip_file="/current_ip.txt"
 
 # 函数：获取当前容器的 IPv4 地址
 get_current_ip() {
-    ipv4_address=$(curl -s https://api.ipify.org)
+    ipv4_address=$(curl -s https://ipinfo.io/json | jq -r '.ip')
     echo "$ipv4_address"
 }
 

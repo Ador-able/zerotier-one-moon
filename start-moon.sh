@@ -10,7 +10,7 @@ export PATH=/bin:/usr/bin:/usr/local/bin:/sbin:/usr/sbin
 moon_port=9993 # 默认的 ZeroTier moon 端口
 
 # 通过 API 请求获取当前的公网 IPv4 地址
-ipv4_address=$(curl -s https://api.ipify.org)
+ipv4_address=$(curl -s https://ipinfo.io/json | jq -r '.ip')
 
 sleep 5
 
