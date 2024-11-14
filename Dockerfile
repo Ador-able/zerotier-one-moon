@@ -20,4 +20,7 @@ EXPOSE 9993/udp
 COPY start-moon.sh /start-moon.sh
 COPY check_ip_and_restart.sh /check_ip_and_restart.sh
 
+# 设置执行权限
+RUN chmod +x /start-moon.sh /check_ip_and_restart.sh
+
 ENTRYPOINT ["/start-moon.sh"]
